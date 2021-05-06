@@ -1,13 +1,17 @@
-from abc import abstractmethod
 from typing import Callable
 
-from .FWCPrivate import FramelessWindowConverterPrivate
+from fwc import FWCP
+
+from ctypes import c_void_p as c_void_pointer
+from ctypes import pointer  as c_address_of
+from ctypes import POINTER  as c_pointer
+from ctypes import c_long   as c_sint32
 
 
 # noinspection PyTypeChecker
 class FWC:
     def __init__(self):
-        self.__d_ptr: FramelessWindowConverterPrivate                   = None
+        self.__d_ptr: FWCP.FWCP                                         = None
         self.__window_handle: int                                       = 0
 
         self.__should_perform_window_drag: Callable[[int, int], bool]   = lambda x, y: True
@@ -39,7 +43,7 @@ class FWC:
         self.__x_pos_of_traffic_lights: int                             = 7
         self.__y_pos_of_traffic_lights: int                             = 3
 
-    def filter_native_events(self, message: bytes, result: int) -> bool:
+    def filter_native_events(self, message: c_void_pointer, result: c_pointer(c_sint32)) -> bool:
         pass
 
     def convert_window_to_frameless(self, window_handle: int, release_mouse_grab: Callable[[None], None] = lambda: None) -> None:
