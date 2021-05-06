@@ -67,6 +67,12 @@ if sys.platform.startswith('win'):
         winapi_get_window_placement
     from ..platform.win.func.GetWindowPlacement import WINDOWPLACEMENT as \
         winapi_WINDOWPLACEMENT
+    from ..platform.win.WindowAnimation import WindowAnimation as \
+        winapi_WindowAnimation
+    from ..platform.win.func.ReleaseCapture import ReleaseCapture as \
+        winapi_release_capture
+    from ..platform.win.HitTest import HitTest as \
+        winapi_HitTest
 
 
     def u_long_low(long: c_uint64) -> winapi_word_uint16:
@@ -249,7 +255,7 @@ if sys.platform.startswith('win'):
             message: c_pointer(winapi_MSG) = static_cast(message, c_pointer(winapi_MSG))
 
             if message.contents.message.value == winapi_WindowMessage.WM_NCCALCSIZE.value:
-                if message.contents.wParam:
+                if message.contents.wParam.value:
                     result.contents.value = 0
                     return True
             elif message.contents.message.value == winapi_WindowMessage.WM_WINDOWPOSCHANGING.value:
@@ -318,7 +324,7 @@ if sys.platform.startswith('win'):
                 result.contents.value = 1
                 return False
             elif message.contents.message.value == winapi_WindowMessage.WM_ACTIVATEAPP.value:
-                if message.contents.wParam:
+                if message.contents.wParam.value:
                     window_placement: winapi_WINDOWPLACEMENT = winapi_WINDOWPLACEMENT(
                         0, 0, 0,
                         winapi_POINT(0, 0), winapi_POINT(0, 0),
@@ -341,5 +347,73 @@ if sys.platform.startswith('win'):
                         )
                 return False
             elif message.contents.message.value == winapi_WindowMessage.WM_ACTIVATE.value:
-                pass
+                if u_long_low(message.contents.wParam.value).value == winapi_WindowAnimation.WA_ACTIVE.value and \
+                        u_long_high(message.contents.wParam.value).value == 0:
+                    winapi_set_window_long_ptr_w(
+                        self.__handle,
+                        winapi_GetWindowLongPtrOption.GWL_STYLE.value,
+                        winapi_get_window_long_ptr_w(
+                            self.__handle,
+                            winapi_GetWindowLongPtrOption.GWL_STYLE.value
+                        ).value & ~ winapi_WindowStyle.WS_CAPTION.value
+                    )
+                elif u_long_low(message.contents.wParam.value).value == winapi_WindowAnimation.WA_INACTIVE.value and \
+                        u_long_high(message.contents.wParam.value).value == 0:
+                    winapi_set_window_long_ptr_w(
+                        self.__handle,
+                        winapi_GetWindowLongPtrOption.GWL_STYLE.value,
+                        winapi_get_window_long_ptr_w(
+                            self.__handle,
+                            winapi_GetWindowLongPtrOption.GWL_STYLE.value
+                        ).value | winapi_WindowStyle.WS_CAPTION.value
+                    )
+                return False
+            elif message.contents.message.value == winapi_WindowMessage.WM_NCHITTEST.value:
+                return False
+            elif message.contents.message.value == winapi_WindowMessage.WM_LBUTTONDBLCLK.value:
+                mouse_pos: fwc_types.FWCPoint.FWCPoint = fwc_types.FWCPoint.FWCPoint(self.get_current_mouse_pos(message.contents.lParam))
 
+                if not super().q.should_perform_window_drag(mouse_pos.x, mouse_pos.y):
+                    return False
+
+                if super().do_border_hit_test(
+                    self.get_current_client_rect(),
+                    mouse_pos,
+                    super().q.border_width() == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.CLIENT.value
+                ):
+                    winapi_release_capture()
+                    winapi_send_message(
+                        self.__handle,
+                        winapi_WindowMessage.WM_NCLBUTTONDBLCLK.value,
+                        winapi_HitTest.HTCAPTION.value,
+                        message.contents.lParam.value
+                    )
+
+                return False
+            elif message.contents.message.value == winapi_WindowMessage.WM_LBUTTONDOWN.value:
+                mouse_pos: fwc_types.FWCPoint.FWCPoint = self.get_current_mouse_pos(message.contents.lParam)
+                hit_result: fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult
+
+                if super().q.enable_resizing:
+                    hit_result = super().do_border_hit_test(
+                        self.get_current_client_rect(),
+                        mouse_pos,
+                        super().q.border_width
+                    )
+                else:
+                    hit_result = super().do_border_hit_test(
+                        self.get_current_client_rect(),
+                        mouse_pos,
+                        0
+                    )
+
+                if hit_result.value == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.LEFT:
+                    winapi_release_capture()
+                    winapi_send_message(
+                        self.__handle,
+                        winapi_WindowMessage.WM_NCLBUTTONDOWN.value,
+                        winapi_HitTest.HTLEFT.value,
+                        message.contents.lParam.value
+                    )
+                else:
+                    pass
