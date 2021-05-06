@@ -1,15 +1,11 @@
 import sys
 
-
-if sys.platform.startswith('wim'):
-    from ctypes.wintypes import HWND as winapi_window_handle
-    from ctypes import POINTER as c_pointer
+if sys.platform.startswith('win'):
     from ctypes import Structure
     from ctypes.wintypes import UINT as winapi_uint32
     from ctypes.wintypes import POINT as winapi_POINT
     from ctypes.wintypes import RECT as winapi_RECT
-    from ctypes.wintypes import BOOL as winapi_bool
-    from ctypes import windll
+    from ctypes import POINTER as c_pointer
 
 
     class WINDOWPLACEMENT(Structure):
@@ -23,9 +19,5 @@ if sys.platform.startswith('wim'):
             ('rcDevice', winapi_RECT)
         ]
 
-    GetWindowPlacement = windll.user32.GetWindowPlacement
-    GetWindowPlacement.argtypes = [
-        winapi_window_handle,
-        c_pointer(WINDOWPLACEMENT)
-    ]
-    GetWindowPlacement.restype = winapi_bool
+    PWINDOWPLACEMENT = c_pointer(WINDOWPLACEMENT)
+    LPWINDOWPLACEMENT = c_pointer(WINDOWPLACEMENT)

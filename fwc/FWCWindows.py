@@ -8,7 +8,6 @@ if sys.platform.startswith('win'):
 
     from ctypes import c_void_p as          c_void_pointer
     from ctypes import c_long as            c_sint32
-    from ctypes import pointer as           c_address_of
     from ctypes import POINTER as           c_pointer
 
     from ctypes.wintypes import HWND as     winapi_window_handle
@@ -22,6 +21,7 @@ if sys.platform.startswith('win'):
     from ctypes.wintypes import WORD as     winapi_word_uint16
     from ctypes.wintypes import LPWSTR as   winapi_wchar_pointer
     from ctypes.wintypes import PDWORD as   winapi_dword_uint32_pointer
+    from ctypes.wintypes import DWORD as    winapi_dword_uint32
     from ctypes.wintypes import PULONG as   winapi_uint32_pointer
     from ctypes.wintypes import PLONG as    winapi_sint32_pointer
     from ctypes.wintypes import RECT as     winapi_RECT
@@ -31,48 +31,43 @@ if sys.platform.startswith('win'):
 
     from ctypes.wintypes import POINT as    winapi_POINT
 
+    from ctypes.wintypes import HMONITOR as winapi_monitor_handle
+
+    from ctypes import sizeof as c_sizeof
+
     winapi_lresult = winapi_sint32_pointer
 
     from ctypes import byref
 
-    from ..platform.win.func.GetWindowLongPtrW import GetWindowLongPtrW as \
-        winapi_get_window_long_ptr_w
-    from ..platform.win.func.GetWindowLongPtrW import GetWindowLongOption as \
-        winapi_GetWindowLongPtrOption
-    from ..platform.win.func.SetWindowLongPtrW import SetWindowLongPtrW as \
-        winapi_set_window_long_ptr_w
-    from ..platform.win.func.ShowWindow import ShowWindow as \
-        winapi_show_window
-    from ..platform.win.func.ShowWindow import ShowWindowOption as \
-        winapi_ShowWindowOption
-    from ..platform.win.func.SendMessage import SendMessage as \
-        winapi_send_message
-    from ..platform.win.WindowMessage import WindowMessage as \
-        winapi_WindowMessage
-    from ..platform.win.WindowStyle import WindowStyle as \
-        winapi_WindowStyle
-    from ..platform.win.func.DwmExtendFrameIntoClientArea import MARGINS as \
-        winapi_MARGINS
-    from ..platform.win.func.DwmExtendFrameIntoClientArea import DwmExtendFrameIntoClientArea as \
-        winapi_dwm_extend_frame_into_client_area
-    from ..platform.win.func.SetWindowPos import SetWindowPos as \
-        winapi_set_window_position
-    from ..platform.win.func.SetWindowPos import SetWindowPosOption as \
-        winapi_SetWindowPositionOption
-    from ..platform.win.func.GetClientRect import GetClientRect as \
-        winapi_get_client_rect
-    from ..platform.win.func.GetWindowRect import GetWindowRect as \
-        winapi_get_window_rect
-    from ..platform.win.func.GetWindowPlacement import GetWindowPlacement as \
-        winapi_get_window_placement
-    from ..platform.win.func.GetWindowPlacement import WINDOWPLACEMENT as \
-        winapi_WINDOWPLACEMENT
-    from ..platform.win.WindowAnimation import WindowAnimation as \
-        winapi_WindowAnimation
-    from ..platform.win.func.ReleaseCapture import ReleaseCapture as \
-        winapi_release_capture
-    from ..platform.win.HitTest import HitTest as \
-        winapi_HitTest
+    from ..platform.win.enum.GetWindowLongOption import GetWindowLongOption as                          winapi_GetWindowLongPtrOption
+    from ..platform.win.enum.WindowMessage import WindowMessage as                                      winapi_WindowMessage
+    from ..platform.win.enum.ShowWindowOption import ShowWindowOption as                                winapi_ShowWindowOption
+    from ..platform.win.enum.WindowStyle import WindowStyle as                                          winapi_WindowStyle
+    from ..platform.win.enum.SetWindowPosOption import SetWindowPosOption as                            winapi_SetWindowPositionOption
+    from ..platform.win.enum.WindowAnimation import WindowAnimation as                                  winapi_WindowAnimation
+    from ..platform.win.enum.HitTest import HitTest as                                                  winapi_HitTest
+    from ..platform.win.enum.MonitorFromWindowOption import MonitorFromWindowOption as                  winapi_MonitorFromWindowOption
+
+    from ..platform.win.struct.MARGINS import MARGINS as                                                winapi_MARGINS
+    from ..platform.win.struct.WINDOWPLACEMENT import WINDOWPLACEMENT as                                winapi_WINDOWPLACEMENT
+    from ..platform.win.struct.MINMAXINFO import MINMAXINFO as                                          winapi_MINMAXINFO
+    from ..platform.win.struct.MINMAXINFO import LPMINMAXINFO as                                        winapi_MINMAXINFO_pointer
+    from ..platform.win.struct.MONITORINFO import MONITORINFO as                                        winapi_MONITORINFO
+
+    from ..platform.win.function.GetWindowLongPtrW import GetWindowLongPtrW as                          winapi_get_window_long_ptr_w
+    from ..platform.win.function.SetWindowLongPtrW import SetWindowLongPtrW as                          winapi_set_window_long_ptr_w
+    from ..platform.win.function.ShowWindow import ShowWindow as                                        winapi_show_window
+    from ..platform.win.function.SendMessage import SendMessage as                                      winapi_send_message
+    from ..platform.win.function.DwmExtendFrameIntoClientArea import DwmExtendFrameIntoClientArea as    winapi_dwm_extend_frame_into_client_area
+    from ..platform.win.function.SetWindowPos import SetWindowPos as                                    winapi_set_window_position
+    from ..platform.win.function.GetClientRect import GetClientRect as                                  winapi_get_client_rect
+    from ..platform.win.function.GetWindowRect import GetWindowRect as                                  winapi_get_window_rect
+    from ..platform.win.function.GetWindowPlacement import GetWindowPlacement as                        winapi_get_window_placement
+    from ..platform.win.function.ReleaseCapture import ReleaseCapture as                                winapi_release_capture
+    from ..platform.win.function.LoadCursorW import LoadCursorW as                                      winapi_load_cursor_w
+    from ..platform.win.function.SetCursor import SetCursor as                                          winapi_set_cursor
+    from ..platform.win.function.MonitorFromWindow import MonitorFromWindow as                          winapi_monitor_from_window
+    from ..platform.win.function.GetMonitorInfoW import GetMonitorInfoW as                              winapi_get_monitor_info_w
 
 
     def u_long_low(long: c_uint64) -> winapi_word_uint16:
@@ -142,12 +137,50 @@ if sys.platform.startswith('win'):
 
             self.__handle: winapi_window_handle = winapi_window_handle(0)
 
+        def set_frameless(self, enabled: bool) -> None:
+            new_style: FWCWindows.Style = FWCWindows.Style.AERO_BORDERLESS if enabled else FWCWindows.Style.WINDOWED
+            old_style: FWCWindows.Style
+
+            old_style_casted: c_uint64 = static_cast(winapi_get_window_long_ptr_w(
+                self.__handle,
+                winapi_GetWindowLongPtrOption.GWL_STYLE.value
+            ), c_uint64)
+
+            if old_style_casted.value == FWCWindows.Style.WINDOWED.value:
+                old_style = FWCWindows.Style.WINDOWED
+            elif old_style_casted.value == FWCWindows.Style.AERO_BORDERLESS.value:
+                old_style = FWCWindows.Style.AERO_BORDERLESS
+            else:
+                old_style = FWCWindows.Style.MAXIMIZED_BORDERLESS
+
+            if new_style != old_style:
+                winapi_set_window_long_ptr_w(
+                    self.__handle,
+                    winapi_GetWindowLongPtrOption.GWL_STYLE.value,
+                    winapi_sint32(new_style.value)
+                )
+
+                self.set_enable_shadow()
+
+                winapi_set_window_position(
+                    self.__handle, None,
+                    0, 0, 0, 0,
+                    winapi_SetWindowPositionOption.SWP_FRAMECHANGED.value   |
+                    winapi_SetWindowPositionOption.SWP_NOMOVE.value         |
+                    winapi_SetWindowPositionOption.SWP_NOSIZE.value
+                )
+
+                winapi_show_window(
+                    self.__handle,
+                    winapi_ShowWindowOption.SW_SHOW.value
+                )
+
         def convert_to_frameless(self) -> None:
             self.__handle: winapi_window_handle = static_cast(super().q.window_handle, winapi_window_handle)
-            super().set_frameless(True)
+            self.set_frameless(True)
 
         def convert_to_window_with_frame(self) -> None:
-            super().set_frameless(False)
+            self.set_frameless(False)
 
         def minimize_window(self) -> None:
             if not super().fullscreen:
@@ -252,13 +285,13 @@ if sys.platform.startswith('win'):
             return fwc_types.FWCPoint.FWCPoint(long_low(param).value, long_high(param).value)
 
         def filter_native_event(self, message: c_void_pointer, result: c_pointer(c_sint32)):
-            message: c_pointer(winapi_MSG) = static_cast(message, c_pointer(winapi_MSG))
+            casted_message: c_pointer(winapi_MSG) = static_cast(message, c_pointer(winapi_MSG))
 
-            if message.contents.message.value == winapi_WindowMessage.WM_NCCALCSIZE.value:
-                if message.contents.wParam.value:
+            if casted_message.contents.message.value == winapi_WindowMessage.WM_NCCALCSIZE.value:
+                if casted_message.contents.wParam.value:
                     result.contents.value = 0
                     return True
-            elif message.contents.message.value == winapi_WindowMessage.WM_WINDOWPOSCHANGING.value:
+            elif casted_message.contents.message.value == winapi_WindowMessage.WM_WINDOWPOSCHANGING.value:
                 window_placement: winapi_WINDOWPLACEMENT = winapi_WINDOWPLACEMENT(
                     0, 0, 0,
                     winapi_POINT(0, 0), winapi_POINT(0, 0),
@@ -320,11 +353,11 @@ if sys.platform.startswith('win'):
                         winapi_ShowWindowOption.SW_SHOWMAXIMIZED.value
                     )
                 return False
-            elif message.contents.message.value == winapi_WindowMessage.WM_NCACTIVATE.value:
+            elif casted_message.contents.message.value == winapi_WindowMessage.WM_NCACTIVATE.value:
                 result.contents.value = 1
                 return False
-            elif message.contents.message.value == winapi_WindowMessage.WM_ACTIVATEAPP.value:
-                if message.contents.wParam.value:
+            elif casted_message.contents.message.value == winapi_WindowMessage.WM_ACTIVATEAPP.value:
+                if casted_message.contents.wParam.value:
                     window_placement: winapi_WINDOWPLACEMENT = winapi_WINDOWPLACEMENT(
                         0, 0, 0,
                         winapi_POINT(0, 0), winapi_POINT(0, 0),
@@ -346,9 +379,9 @@ if sys.platform.startswith('win'):
                             ).value & ~ winapi_WindowStyle.WS_CAPTION.value
                         )
                 return False
-            elif message.contents.message.value == winapi_WindowMessage.WM_ACTIVATE.value:
-                if u_long_low(message.contents.wParam.value).value == winapi_WindowAnimation.WA_ACTIVE.value and \
-                        u_long_high(message.contents.wParam.value).value == 0:
+            elif casted_message.contents.message.value == winapi_WindowMessage.WM_ACTIVATE.value:
+                if u_long_low(casted_message.contents.wParam.value).value == winapi_WindowAnimation.WA_ACTIVE.value and \
+                        u_long_high(casted_message.contents.wParam.value).value == 0:
                     winapi_set_window_long_ptr_w(
                         self.__handle,
                         winapi_GetWindowLongPtrOption.GWL_STYLE.value,
@@ -357,8 +390,8 @@ if sys.platform.startswith('win'):
                             winapi_GetWindowLongPtrOption.GWL_STYLE.value
                         ).value & ~ winapi_WindowStyle.WS_CAPTION.value
                     )
-                elif u_long_low(message.contents.wParam.value).value == winapi_WindowAnimation.WA_INACTIVE.value and \
-                        u_long_high(message.contents.wParam.value).value == 0:
+                elif u_long_low(casted_message.contents.wParam.value).value == winapi_WindowAnimation.WA_INACTIVE.value and \
+                        u_long_high(casted_message.contents.wParam.value).value == 0:
                     winapi_set_window_long_ptr_w(
                         self.__handle,
                         winapi_GetWindowLongPtrOption.GWL_STYLE.value,
@@ -368,10 +401,10 @@ if sys.platform.startswith('win'):
                         ).value | winapi_WindowStyle.WS_CAPTION.value
                     )
                 return False
-            elif message.contents.message.value == winapi_WindowMessage.WM_NCHITTEST.value:
+            elif casted_message.contents.message.value == winapi_WindowMessage.WM_NCHITTEST.value:
                 return False
-            elif message.contents.message.value == winapi_WindowMessage.WM_LBUTTONDBLCLK.value:
-                mouse_pos: fwc_types.FWCPoint.FWCPoint = fwc_types.FWCPoint.FWCPoint(self.get_current_mouse_pos(message.contents.lParam))
+            elif casted_message.contents.message.value == winapi_WindowMessage.WM_LBUTTONDBLCLK.value:
+                mouse_pos: fwc_types.FWCPoint.FWCPoint = fwc_types.FWCPoint.FWCPoint(self.get_current_mouse_pos(casted_message.contents.lParam))
 
                 if not super().q.should_perform_window_drag(mouse_pos.x, mouse_pos.y):
                     return False
@@ -386,12 +419,12 @@ if sys.platform.startswith('win'):
                         self.__handle,
                         winapi_WindowMessage.WM_NCLBUTTONDBLCLK.value,
                         winapi_HitTest.HTCAPTION.value,
-                        message.contents.lParam.value
+                        casted_message.contents.lParam.value
                     )
 
                 return False
-            elif message.contents.message.value == winapi_WindowMessage.WM_LBUTTONDOWN.value:
-                mouse_pos: fwc_types.FWCPoint.FWCPoint = self.get_current_mouse_pos(message.contents.lParam)
+            elif casted_message.contents.message.value == winapi_WindowMessage.WM_LBUTTONDOWN.value:
+                mouse_pos: fwc_types.FWCPoint.FWCPoint = self.get_current_mouse_pos(casted_message.contents.lParam)
                 hit_result: fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult
 
                 if super().q.enable_resizing:
@@ -407,13 +440,121 @@ if sys.platform.startswith('win'):
                         0
                     )
 
+                hit_location: winapi_HitTest
                 if hit_result.value == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.LEFT:
-                    winapi_release_capture()
-                    winapi_send_message(
-                        self.__handle,
-                        winapi_WindowMessage.WM_NCLBUTTONDOWN.value,
-                        winapi_HitTest.HTLEFT.value,
-                        message.contents.lParam.value
-                    )
+                    hit_location = winapi_HitTest.HTLEFT
+                elif hit_result.value == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.RIGHT:
+                    hit_location = winapi_HitTest.HTRIGHT
+                elif hit_result.value == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.TOP:
+                    hit_location = winapi_HitTest.HTTOP
+                elif hit_result.value == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.BOTTOM:
+                    hit_location = winapi_HitTest.HTBOTTOM
+                elif hit_result.value == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.BOTTOM_LEFT:
+                    hit_location = winapi_HitTest.HTBOTTOMLEFT
+                elif hit_result.value == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.BOTTOM_RIGHT:
+                    hit_location = winapi_HitTest.HTBOTTOMRIGHT
+                elif hit_result.value == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.TOP_LEFT:
+                    hit_location = winapi_HitTest.HTTOPLEFT
+                elif hit_result.value == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.TOP_RIGHT:
+                    hit_location = winapi_HitTest.HTTOPRIGHT
                 else:
-                    pass
+                    if super().q.should_perform_window_drag(mouse_pos.x, mouse_pos.y):
+                        winapi_release_capture()
+                        winapi_send_message(
+                            self.__handle,
+                            winapi_WindowMessage.WM_NCLBUTTONDOWN.value,
+                            winapi_HitTest.HTCAPTION.value,
+                            casted_message.contents.lParam.value
+                        )
+
+                    return False
+
+                winapi_release_capture()
+                winapi_send_message(
+                    self.__handle,
+                    winapi_WindowMessage.WM_NCLBUTTONDOWN.value,
+                    hit_location.value,
+                    casted_message.contents.lParam.value
+                )
+
+                return False
+            elif casted_message.contents.message.value == winapi_WindowMessage.WM_MOUSEMOVE.value:
+                if not super().q.enable_resizing:
+                    return False
+
+                hit_result: fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult = super().do_border_hit_test(
+                    self.get_current_client_rect(),
+                    self.get_current_mouse_pos(casted_message.contents.lParam),
+                    super().q.border_width
+                )
+
+                cursor_name: CursorNames
+
+                if hit_result == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.LEFT:
+                    cursor_name = CursorNames.WEST_EAST
+                elif hit_result == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.RIGHT:
+                    cursor_name = CursorNames.WEST_EAST
+                elif hit_result == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.TOP:
+                    cursor_name = CursorNames.NORTH_SOUTH
+                elif hit_result == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.BOTTOM:
+                    cursor_name = CursorNames.NORTH_SOUTH
+                elif hit_result == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.BOTTOM_LEFT:
+                    cursor_name = CursorNames.NORTH_EAST_SOUTH_WEST
+                elif hit_result == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.BOTTOM_RIGHT:
+                    cursor_name = CursorNames.NORTH_WEST_SOUTH_EAST
+                elif hit_result == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.TOP_LEFT:
+                    cursor_name = CursorNames.NORTH_WEST_SOUTH_EAST
+                elif hit_result == fwc_types.FWCBorderHitTestResult.FWCBorderHitTestResult.TOP_RIGHT:
+                    cursor_name = CursorNames.NORTH_EAST_SOUTH_WEST
+                else:
+                    cursor_name = CursorNames.ARROW
+
+                winapi_set_cursor(winapi_load_cursor_w(None, get_cursor_resource(cursor_name)))
+
+                return False
+
+            elif casted_message.contents.message.value == winapi_WindowMessage.WM_GETMINMAXINFO.value:
+                min_max_info: winapi_MINMAXINFO_pointer = static_cast(casted_message.contents.lParam, winapi_MINMAXINFO_pointer)
+                monitor_handle: winapi_monitor_handle = winapi_monitor_from_window(
+                    self.__handle,
+                    winapi_MonitorFromWindowOption.MONITOR_DEFAULTTONEAREST.value
+                )
+                monitor_info: winapi_MONITORINFO = winapi_MONITORINFO(
+                    0,
+                    winapi_RECT(0, 0, 0, 0),
+                    winapi_RECT(0, 0, 0, 0),
+                    0
+                )
+                monitor_info.cbSize = c_sizeof(winapi_MONITORINFO)
+                winapi_get_monitor_info_w(monitor_handle, byref(monitor_info))
+
+                min_max_info.ptMaxPosition.x = 0
+                min_max_info.ptMaxPosition.y = 0
+
+                if super().fullscreen:
+                    min_max_info.ptMaxSize.x = monitor_info.rcMonitor.right - monitor_info.rcMonitor.left
+                    min_max_info.ptMaxSize.y = monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top
+                else:
+                    min_max_info.ptMaxSize.x = monitor_info.rcWork.right - monitor_info.rcWork.left
+                    min_max_info.ptMaxSize.y = monitor_info.rcWork.bottom - monitor_info.rcWork.top
+
+                min_max_info_used: bool = False
+                if super().q.minimum_window_width >= 0:
+                    min_max_info.ptMinTrackSize.x = super().q.minimum_window_width
+                    min_max_info_used = True
+                if super().minimum_window_height >= 0:
+                    min_max_info.ptMinTrackSize.y = super().q.minimum_window_height
+                    min_max_info_used = True
+                if super().maximum_window_width >= 0:
+                    min_max_info.ptMaxTrackSize.x = super().q.maximum_window_width
+                    min_max_info_used = True
+                if super().maximum_window_height >= 0:
+                    min_max_info.ptMaxTrackSize.y = super().q.maximum_window_height
+                    min_max_info_used = True
+
+                if min_max_info_used:
+                    result.contents = 0
+                    return True
+
+                return False
+            return False
